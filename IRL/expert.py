@@ -1,48 +1,61 @@
+import os
+import glob
+import time
+from datetime import datetime
+
 import torch
 import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-import torch.distributions as distributions
+from torch.distributions import MultivariateNormal
+from torch.distributions import Categorical
 
-import matplotlib.pyplot as plt
 import numpy as np
 
-
-class MLP(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim=1, dropout = 0.1):
-        super().__init__()
-        
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.Dropout(dropout),
-            nn.PReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.Dropout(dropout),
-            nn.PReLU(),
-            nn.Linear(hidden_dim, output_dim)
-        )
-        
-    def forward(self, x):
-        x = self.net(x)
-        return x
+class RolloutBuffer:
+    def __init__(self):
+        self.actions = []
+        self.states = []
+        self.logprobs = []
+        self.rewards = []
+        self.state_values = []
+        self.is_terminals = []
     
+
+    def clear(self):
+        del self.actions[:]
+        del self.states[:]
+        del self.logprobs[:]
+        del self.rewards[:]
+        del self.state_values[:]
+        del self.is_terminals[:]
+
 
 
 class ActorCritic(nn.Module):
-    def __init__(self, input_dim, output_dim, lr):
-        super().__init__()
-        
-        self.actor = MLP(input_dim=input_dim, hidden_dim=64, output_dim=output_dim)
-        self.critic = MLP(input_dim=input_dim, hidden_dim=64)
-        self.optimizer = torch.optim(self.parameters(), lr=lr)
-        self.device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
+    def __init__(self, state_dim, action_dim, has_continuous_action_space, action_std_init):
+        super(ActorCritic, self).__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.has_continuous_action_space = has_continuous_action_space
 
-        
-    def forward(self, state):
-        
-        action_pred = self.actor(state)
-        value_pred = self.critic(state)
-        
-        return action_pred, value_pred
-    
-    
+        if has_continuous_action_space:
+            self.action_dim = action_dim
+            self.action_var = torch.full((action_dim,), action_std_init * action_std_init).to(self.device)
+
+        # actor
+        if has_continuous_action_space :
+            self.actor = nn.Sequential(
+                            nn.Linear(state_dim, 64),
+                            nn.Tanh(),
+                            nn.Linear(64, 64),
+                            nn.Tanh(),
+                            nn.Linear(64, action_dim),
+                            nn.Tanh()
+                        )
+        else:
+            self.actor = nn.Sequential(
+                            nn.Linear(state_dim, 64),
+                            nn.Tanh(),
+                            nn.Linear(64, 64),
+                            nn.Tanh(),
+                            nn.Linear(64, action_dim),
+                            nn.Softmax(dim=-1)
+                        )
