@@ -36,7 +36,7 @@ class ActorCritic(nn.Module):
         self.critic = MLP(input_dim=input_dim, hidden_dim=64)
         self.optimizer = torch.optim(self.parameters(), lr=lr)
         self.device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
-        
+
         
     def forward(self, state):
         
@@ -44,3 +44,5 @@ class ActorCritic(nn.Module):
         value_pred = self.critic(state)
         
         return action_pred, value_pred
+    
+    
