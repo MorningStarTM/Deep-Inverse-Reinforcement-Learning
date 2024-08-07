@@ -33,6 +33,9 @@ class RewardNet(nn.Module):
         return loss.item()
     
 
-
-    
-
+    def evaluate(self, state_action, reward_target):
+        self.eval()  # Set model to evaluation mode
+        with torch.no_grad():
+            output = self.forward(state_action)
+            loss = nn.MSELoss()(output, reward_target)
+        return loss.item()
