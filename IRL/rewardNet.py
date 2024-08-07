@@ -39,3 +39,16 @@ class RewardNet(nn.Module):
             output = self.forward(state_action)
             loss = nn.MSELoss()(output, reward_target)
         return loss.item()
+    
+
+    def validate(self, dataloader):
+        self.eval()  # Set model to evaluation mode
+        total_loss = 0
+        with torch.no_grad():
+            for state_action, reward_target in dataloader:
+                state_action = state_action.to(self.device)
+                reward_target = reward_target.to(self.device)
+                output = self.forward(state_action)
+                loss = nn.MSELoss()(output, reward_target)
+                total_loss += loss.item()
+        return total_loss / len(dataloader)
