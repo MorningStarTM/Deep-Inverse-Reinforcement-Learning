@@ -44,13 +44,20 @@ class TransitionStorage:
 
 
 
+def load_and_read_transitions(filename):
+    transition_storage = TransitionStorage()
+    transition_storage.load_from_disk(filename)
+
+    observations, actions, rewards, next_states = transition_storage.get_data()
+    return observations, actions, rewards, next_states
 
 
 class TransitionDataset(Dataset):
-    def __init__(self, storage):
+    def __init__(self, filename):
         # Load data from TransitionStorage
-        observations, actions, rewards, next_states = storage.get_data()
+        observations, actions, rewards, next_states = load_and_read_transitions(filename)
         
+        actions = actions.reshape(-1, 1)
         # Combine observations and actions to form input data
         self.inputs = np.hstack([observations, actions])
         self.targets = rewards
