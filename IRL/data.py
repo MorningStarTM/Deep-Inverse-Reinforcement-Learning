@@ -1,4 +1,8 @@
 import numpy as np
+import torch
+from torch.utils.data import Dataset, DataLoader
+import numpy as np
+
 
 class TransitionStorage:
     def __init__(self):
@@ -37,3 +41,25 @@ class TransitionStorage:
         self.rewards = data['rewards'].tolist()
         self.next_states = data['next_states'].tolist()
         print(f"Data loaded from {filename}")
+
+
+
+
+
+class TransitionDataset(Dataset):
+    def __init__(self, storage):
+        # Load data from TransitionStorage
+        observations, actions, rewards, next_states = storage.get_data()
+        
+        # Combine observations and actions to form input data
+        self.inputs = np.hstack([observations, actions])
+        self.targets = rewards
+        
+    def __len__(self):
+        return len(self.inputs)
+    
+    def __getitem__(self, idx):
+        # Return a single sample
+        input_data = torch.tensor(self.inputs[idx], dtype=torch.float32)
+        target_data = torch.tensor(self.targets[idx], dtype=torch.float32)
+        return input_data, target_data
