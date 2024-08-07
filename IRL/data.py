@@ -63,3 +63,5 @@ class TransitionDataset(Dataset):
         input_data = torch.tensor(self.inputs[idx], dtype=torch.float32)
         target_data = torch.tensor(self.targets[idx], dtype=torch.float32)
         return input_data, target_data
+    
+
