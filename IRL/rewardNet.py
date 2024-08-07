@@ -52,3 +52,11 @@ class RewardNet(nn.Module):
                 loss = nn.MSELoss()(output, reward_target)
                 total_loss += loss.item()
         return total_loss / len(dataloader)
+    
+
+    def save_model(self, filepath):
+        torch.save(self.state_dict(), filepath)
+    
+    def load_model(self, filepath):
+        self.load_state_dict(torch.load(filepath))
+        self.eval() 
