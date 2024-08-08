@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class TransitionStorage:
     def __init__(self):
@@ -52,23 +53,16 @@ def load_and_read_transitions(filename):
     return observations, actions, rewards, next_states
 
 
-class TransitionDataset(Dataset):
-    def __init__(self, filename):
-        # Load data from TransitionStorage
-        observations, actions, rewards, next_states = load_and_read_transitions(filename)
-        
-        actions = actions.reshape(-1, 1)
-        # Combine observations and actions to form input data
-        self.inputs = np.hstack([observations, actions])
-        self.targets = rewards
-        
+class StateActionDataset(Dataset):
+
+    def __init__(self, x, y=None):
+        self.x = torch.tensor(x, dtype=torch.float32).to(device)
+        self.y = torch.tensor(y, dtype=torch.float32).to(device) if y is not None else None
+
     def __len__(self):
-        return len(self.inputs)
-    
+        return len(self.x)
+
     def __getitem__(self, idx):
-        # Return a single sample
-        input_data = torch.tensor(self.inputs[idx], dtype=torch.float32)
-        target_data = torch.tensor(self.targets[idx], dtype=torch.float32)
-        return input_data, target_data
+        return self.x[idx], self.y[idx] if self.y is not None else torch.empty((1, 1), dtype=torch.float32)
     
 
