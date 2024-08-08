@@ -43,11 +43,11 @@ class RewardNet:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.best_accuracy = 0.0
 
-        self.seq = NeuralNetwork(input_dim).to(self.device)
+        self.model = NeuralNetwork(input_dim).to(self.device)
         self.criterion = nn.MSELoss()
         self.optimizer = optim.Adam(self.seq.parameters(), lr=lr)
 
-    def train_loop(dataloader, model, loss_fn, optimizer):
+    def train_loop(self, dataloader):
         """
         Optimization
         """
@@ -57,14 +57,14 @@ class RewardNet:
         
         for batch, (X, y) in enumerate(dataloader):
             # Compute prediction and loss
-            pred = model(X).squeeze(1)
-            loss = loss_fn(pred, y)
+            pred = self.model(X).squeeze(1)
+            loss = self.criterion(pred, y)
 
             # Backpropagation
-            optimizer.zero_grad()
+            self.optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
-            optimizer.step()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 2.0)
+            self.optimizer.step()
             
             if batch % 1000 == 0:            
                 loss, current = loss.item(), batch * len(X)
@@ -79,7 +79,7 @@ class RewardNet:
 
     
 
-    def validate_loop(dataloader, model, loss_fn):
+    def validate_loop(self, dataloader):
         """
         Evaluates
         """
@@ -89,11 +89,11 @@ class RewardNet:
         final_predictions = []
         final_targets = []
         
-        model.eval()
+        self.model.eval()
         with torch.no_grad():
             for X, y in dataloader:
-                pred = model(X).squeeze(1)
-                validate_loss += loss_fn(pred, y).item()
+                pred = self.model(X).squeeze(1)
+                validate_loss += self.criterion(pred, y).item()
 
                 final_predictions.extend(pred.cpu().detach().numpy().tolist())
                 final_targets.extend(y.cpu().detach().numpy().tolist())
@@ -104,22 +104,25 @@ class RewardNet:
 
     
 
-    def validate(self, dataloader):
-        self.seq.eval()  # Set model to evaluation mode
-        total_loss = 0
+    def predict(self, dataloader):
+        """
+        predict
+        """
+        final_predictions = []
+
+        self.model.eval()
         with torch.no_grad():
-            for state_action, reward_target in dataloader:
-                state_action = state_action.to(self.device)
-                reward_target = reward_target.to(self.device)
-                output = self.seq(state_action)
-                loss = nn.MSELoss()(output, reward_target)
-                total_loss += loss.item()
-        return total_loss / len(dataloader)
+            for X, _ in dataloader:
+                pred = self.model(X).squeeze(1)
+
+                final_predictions.extend(pred.cpu().detach().numpy().tolist())
+
+        return final_predictions
     
 
     def save_model(self, filepath):
-        torch.save(self.seq.state_dict(), filepath)
+        torch.save(self.model.state_dict(), filepath)
     
     def load_model(self, filepath):
-        self.seq.load_state_dict(torch.load(filepath))
-        self.seq.eval() 
+        self.model.load_state_dict(torch.load(filepath))
+        self.model.eval() 
