@@ -79,32 +79,29 @@ class RewardNet:
 
     
 
-    def evaluate(self, X_test:torch.Tensor, y_test:torch.Tensor, batch_size=32):
+    def validate_loop(dataloader, model, loss_fn):
         """
-        Function for evaluate the model
-        Args:
-            X_test (tensor) data without label
-            y_test (tensor) true label
-            batch size (int)
+        Evaluates
+        """
+        num_batches = len(dataloader)
+        validate_loss = 0
 
-        Return:
-            Accuracy (float)
-        """
-        self.seq.eval()
-        total_loss = 0
+        final_predictions = []
+        final_targets = []
+        
+        model.eval()
         with torch.no_grad():
-            for i in range(0, X_test.size(0), batch_size):
-                batch_X = X_test[i:i+batch_size]
-                batch_y = y_test[i:i+batch_size]
+            for X, y in dataloader:
+                pred = model(X).squeeze(1)
+                validate_loss += loss_fn(pred, y).item()
 
-                x = torch.tensor(batch_X, device=self.device, dtype=torch.float32)
-                y = torch.tensor(batch_y, device=self.device, dtype=torch.float32)
-                outputs = self.seq(batch_X)
-                
-                loss = self.criterion(outputs.squeeze(), y)  
-                total_loss += loss.item() * y.size(0)  
-        average_loss = total_loss / X_test.size(0)
-        return average_loss
+                final_predictions.extend(pred.cpu().detach().numpy().tolist())
+                final_targets.extend(y.cpu().detach().numpy().tolist())
+
+        validate_loss /= num_batches
+        score = mean_squared_error(final_targets, final_predictions, squared=False)
+        print(f"Validate Error: \n RMSE accuracy: {(100 * score):>0.1f}%, Avg loss: {validate_loss:>8f} \n")
+
     
 
     def validate(self, dataloader):
