@@ -6,28 +6,46 @@ import torch.optim as optim
 
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, input_dim):
-        super(NeuralNetwork, self).__init__()
-        self.fc1 = nn.Linear(input_dim, 64)
-        self.fc2 = nn.Linear(64, 32)
-        self.fc3 = nn.Linear(32, 1)
-        self.relu = nn.ReLU()
+    """
+    Simple neural network
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.head = nn.Sequential(
+            nn.Linear(9, 128),
+            nn.ReLU(),
+            nn.Linear(128, 256),
+            nn.ReLU(),
+            nn.Linear(256, 512),
+            nn.ReLU(),
+            nn.Linear(512, 1024),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, 1),
+        )
 
     def forward(self, x):
-        x = self.relu(self.fc1(x))
-        x = self.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+        logits = self.head(x)
+
+        return logits
     
 
 class RewardNet:
     def __init__(self, input_dim, lr):
         super(RewardNet, self).__init__()
-        self.seq = NeuralNetwork(input_dim)
-        self.criterion = nn.MSELoss()
-        self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+        self.best_accuracy = 0.0
+
+        self.seq = NeuralNetwork(input_dim).to(self.device)
+        self.criterion = nn.MSELoss()
+        self.optimizer = optim.Adam(self.seq.parameters(), lr=lr)
 
     def train(self, X_train, y_train, epochs=10, batch_size=32):
         """
@@ -39,7 +57,7 @@ class RewardNet:
             epochs (int)
             batch_size (int)
         """
-        self.model.train()
+        self.seq.train()
         for epoch in range(epochs):
             permutation = torch.randperm(X_train.size()[0])
             for i in range(0, X_train.size()[0], batch_size):
@@ -47,20 +65,20 @@ class RewardNet:
                 batch_X, batch_y = X_train[indices].to(self.device), y_train[indices].to(self.device)
 
                 self.optimizer.zero_grad()
-                outputs = self.model(batch_X)
+                outputs = self.seq(batch_X)
                 loss = self.criterion(outputs, batch_y)
                 loss.backward()
                 self.optimizer.step()
 
             #  save the  model when loss is reduce
             train_accuracy = self.evaluate(X_train, y_train)
-            print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}, Training Accuracy: {train_accuracy:.4f}')
+            print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}, Evaluation Loss: {train_accuracy:.4f}')
             if self.best_accuracy < train_accuracy:
                 self.best_accuracy = train_accuracy
-                self.save_model()
+                self.save_model("data\\rewardModel.pth")
     
 
-    def evaluate(self, X_test, y_test, batch_size=32):
+    def evaluate(self, X_test:torch.Tensor, y_test:torch.Tensor, batch_size=32):
         """
         Function for evaluate the model
         Args:
@@ -71,37 +89,39 @@ class RewardNet:
         Return:
             Accuracy (float)
         """
-        self.model.eval()
-        correct = 0
-        total = 0
+        self.seq.eval()
+        total_loss = 0
         with torch.no_grad():
             for i in range(0, X_test.size(0), batch_size):
-                batch_X = X_test[i:i+batch_size].to(self.device)
-                batch_y = y_test[i:i+batch_size].to(self.device)
-                outputs = self.model(batch_X)
-                _, predicted = torch.max(outputs, 1)
-                total += batch_y.size(0)
-                correct += (predicted == batch_y).sum().item()
-        accuracy = correct / total
-        return accuracy
+                batch_X = X_test[i:i+batch_size]
+                batch_y = y_test[i:i+batch_size]
+
+                x = torch.tensor(batch_X, device=self.device, dtype=torch.float32)
+                y = torch.tensor(batch_y, device=self.device, dtype=torch.float32)
+                outputs = self.seq(batch_X)
+                
+                loss = self.criterion(outputs.squeeze(), y)  
+                total_loss += loss.item() * y.size(0)  
+        average_loss = total_loss / X_test.size(0)
+        return average_loss
     
 
     def validate(self, dataloader):
-        self.eval()  # Set model to evaluation mode
+        self.seq.eval()  # Set model to evaluation mode
         total_loss = 0
         with torch.no_grad():
             for state_action, reward_target in dataloader:
                 state_action = state_action.to(self.device)
                 reward_target = reward_target.to(self.device)
-                output = self.forward(state_action)
+                output = self.seq(state_action)
                 loss = nn.MSELoss()(output, reward_target)
                 total_loss += loss.item()
         return total_loss / len(dataloader)
     
 
     def save_model(self, filepath):
-        torch.save(self.state_dict(), filepath)
+        torch.save(self.seq.state_dict(), filepath)
     
     def load_model(self, filepath):
-        self.load_state_dict(torch.load(filepath))
-        self.eval() 
+        self.seq.load_state_dict(torch.load(filepath))
+        self.seq.eval() 
