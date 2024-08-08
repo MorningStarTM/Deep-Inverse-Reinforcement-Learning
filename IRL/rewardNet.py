@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
+from sklearn.metrics import mean_squared_error
 
 
 class NeuralNetwork(nn.Module):
@@ -47,35 +47,36 @@ class RewardNet:
         self.criterion = nn.MSELoss()
         self.optimizer = optim.Adam(self.seq.parameters(), lr=lr)
 
-    def train(self, X_train, y_train, epochs=10, batch_size=32):
+    def train_loop(dataloader, model, loss_fn, optimizer):
         """
-        Function for training 
-
-        Args: 
-            X_train (tensot) data without lable
-            y_train (tensor) label
-            epochs (int)
-            batch_size (int)
+        Optimization
         """
-        self.seq.train()
-        for epoch in range(epochs):
-            permutation = torch.randperm(X_train.size()[0])
-            for i in range(0, X_train.size()[0], batch_size):
-                indices = permutation[i:i + batch_size]
-                batch_X, batch_y = X_train[indices].to(self.device), y_train[indices].to(self.device)
+        size = len(dataloader.dataset)
+        loss_history = []
+        score_history = []
+        
+        for batch, (X, y) in enumerate(dataloader):
+            # Compute prediction and loss
+            pred = model(X).squeeze(1)
+            loss = loss_fn(pred, y)
 
-                self.optimizer.zero_grad()
-                outputs = self.seq(batch_X)
-                loss = self.criterion(outputs, batch_y)
-                loss.backward()
-                self.optimizer.step()
+            # Backpropagation
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
+            optimizer.step()
+            
+            if batch % 1000 == 0:            
+                loss, current = loss.item(), batch * len(X)
+                loss_history.append(loss)
 
-            #  save the  model when loss is reduce
-            train_accuracy = self.evaluate(X_train, y_train)
-            print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}, Evaluation Loss: {train_accuracy:.4f}')
-            if self.best_accuracy < train_accuracy:
-                self.best_accuracy = train_accuracy
-                self.save_model("data\\rewardModel.pth")
+                score = mean_squared_error(y.cpu().detach().numpy().tolist(), pred.cpu().detach().numpy().tolist(), squared=False)
+                score_history.append(score)
+            
+                print(f'loss: {loss:>7f}  [{current:>5d}/{size:>5d}]')
+                
+        return loss_history, score_history
+
     
 
     def evaluate(self, X_test:torch.Tensor, y_test:torch.Tensor, batch_size=32):
