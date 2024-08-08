@@ -38,14 +38,14 @@ class NeuralNetwork(nn.Module):
     
 
 class RewardNet:
-    def __init__(self, input_dim, lr):
+    def __init__(self, lr):
         super(RewardNet, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.best_accuracy = 0.0
 
-        self.model = NeuralNetwork(input_dim).to(self.device)
+        self.model = NeuralNetwork().to(self.device)
         self.criterion = nn.MSELoss()
-        self.optimizer = optim.Adam(self.seq.parameters(), lr=lr)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
     def train_loop(self, dataloader):
         """
