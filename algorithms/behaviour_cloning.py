@@ -26,7 +26,7 @@ class BehaviorClonning:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = NeuralNetwork(input_dim, output_dim).to(self.device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.MSELoss()
         self.best_accuracy = 0.0
         self.path = "artifacts\\model.pth"
 
