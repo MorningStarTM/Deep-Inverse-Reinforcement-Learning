@@ -60,3 +60,29 @@ class BehaviorClonning:
             if self.best_accuracy < train_accuracy:
                 self.best_accuracy = train_accuracy
                 self.save_model()
+
+    
+    def evaluate(self, X_test, y_test, batch_size=32):
+        """
+        Function for evaluate the model
+        Args:
+            X_test (tensor) data without label
+            y_test (tensor) true label
+            batch size (int)
+
+        Return:
+            Accuracy (float)
+        """
+        self.model.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for i in range(0, X_test.size(0), batch_size):
+                batch_X = X_test[i:i+batch_size].to(self.device)
+                batch_y = y_test[i:i+batch_size].to(self.device)
+                outputs = self.model(batch_X)
+                _, predicted = torch.max(outputs, 1)
+                total += batch_y.size(0)
+                correct += (predicted == batch_y).sum().item()
+        accuracy = correct / total
+        return accuracy
