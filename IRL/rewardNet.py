@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 
 
 class NeuralNetwork(nn.Module):
@@ -100,7 +100,9 @@ class RewardNet:
 
         validate_loss /= num_batches
         score = mean_squared_error(final_targets, final_predictions, squared=False)
-        print(f"Validate Error: \n RMSE accuracy: {(100 * score):>0.1f}%, Avg loss: {validate_loss:>8f} \n")
+        mae = mean_absolute_error(final_targets, final_predictions)
+        r2 = r2_score(final_targets, final_predictions)
+        print(f"Validate Error: \n RMSE accuracy: {(100 * score):>0.1f}%, Avg loss: {validate_loss:>8f} \nMAE : {mae:>8f} \nR_squared : {r2:>8f}")
 
     
 
